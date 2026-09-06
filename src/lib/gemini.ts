@@ -4,6 +4,7 @@ import type {
   GoalItem,
   AskHistoryResponse
 } from '../types';
+import { auth } from './firebase';
 
 export interface AnalyzeDayParams {
   journalText: string;
@@ -19,12 +20,28 @@ export interface AnalyzeDayResult {
 }
 
 /**
+ * Retrieve current Firebase ID token for Authorization header
+ */
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Authentication required: please sign in to use Gemini intelligence features.');
+  }
+  const token = await currentUser.getIdToken();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+}
+
+/**
  * Sends journal text to Gemini backend to extract structured Daily Intelligence
  */
 export async function analyzeDayWithGemini(params: AnalyzeDayParams): Promise<AnalyzeDayResult> {
+  const headers = await getAuthHeaders();
   const response = await fetch('/api/gemini/analyze-day', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       journalText: params.journalText,
       date: params.date,
@@ -69,9 +86,16 @@ export async function analyzeDayWithGemini(params: AnalyzeDayParams): Promise<An
  */
 export async function suggestTitle(text: string): Promise<string> {
   try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return 'Daily Reflection';
+    const token = await currentUser.getIdToken();
+
     const response = await fetch('/api/gemini/title', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({ text })
     });
     if (!response.ok) return 'Daily Reflection';
@@ -89,9 +113,10 @@ export async function askPersonalHistory(
   question: string,
   entries: Array<{ date: string; title: string; journalText: string; wins?: string[]; challenges?: string[] }>
 ): Promise<AskHistoryResponse> {
+  const headers = await getAuthHeaders();
   const response = await fetch('/api/gemini/ask-history', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       question,
       entries
@@ -125,9 +150,10 @@ export async function investigateTrend(
   trendContext: string,
   entries: Array<{ date: string; title: string; journalText: string; stress?: string; mood?: string }>
 ): Promise<{ explanation: string; modelUsed: string }> {
+  const headers = await getAuthHeaders();
   const response = await fetch('/api/gemini/investigate-trend', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       trendTitle,
       trendContext,

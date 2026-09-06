@@ -1,6 +1,6 @@
 # Gemini Life Intelligence & Reflection Journal
 
-A private, user-authenticated Personal AI Life Intelligence application powered by **Gemini 3.6 Flash** and **Google Cloud Firestore**. It transforms daily reflections into structured life intelligence across 5 primary sections: **Dashboard**, **Journal**, **Analysis**, **Calendar**, and **Settings**.
+A private, user-authenticated Personal AI Life Intelligence application powered by **Gemini 3.8 Flash** and **Google Cloud Firestore**. It transforms daily reflections into structured life intelligence across 5 primary sections: **Dashboard**, **Journal**, **Analysis**, **Calendar**, and **Settings**.
 
 ---
 
@@ -13,11 +13,11 @@ $$\text{Capture} \longrightarrow \text{Understand} \longrightarrow \text{Remembe
 
 | Threat Zone | Identified Risks | Countermeasures Implemented |
 | :--- | :--- | :--- |
-| **1. Input Surfaces** | Injection in journal text, malicious payloads, prompt injection | Strict server validation, JSON payload bounds, explicit demarcation of user text as data in Gemini prompt templates. |
+| **1. Input Surfaces** | Injection in journal text, malicious payloads, prompt injection | Strict server validation, JSON payload bounds, explicit demarcation of user text as untrusted data in Gemini prompt templates. |
 | **2. Planning & Reasoning** | Prompt injection trying to alter authoritative data | Authoritative tasks are kept strictly user-managed; Gemini can only propose `PossibleTaskCompletion` requiring explicit user approval. |
-| **3. Tool Execution** | Privilege escalation, SSRF, dynamic code execution | No dynamic eval; server API proxies all GenAI calls securely via SDK; zero secret leakage to browser. |
-| **4. Memory & State** | Firestore data cross-leakage, multi-user unauthorized access | Strict Firestore security rules: `request.auth != null && request.auth.uid == userId` covering all `/users/{userId}/**` paths. |
-| **5. Inter-System Communication** | Gemini rate limits, outages, token leakage | Resilient 4-model fallback ladder (`gemini-3.6-flash` &rarr; `gemini-3.1-flash-lite` &rarr; `gemini-flash-latest` &rarr; `gemini-3.7-flash`), server-side Secret Manager integration. |
+| **3. Tool Execution** | Privilege escalation, SSRF, dynamic code execution | No dynamic eval; server API proxies all GenAI calls securely via SDK; zero secret leakage to browser; server-side Firebase ID token verification required for all AI routes. |
+| **4. Memory & State** | Firestore data cross-leakage, multi-user unauthorized access | Strict Firestore security rules: Default Deny root collections; `request.auth != null && request.auth.uid == userId` covering all `/users/{userId}/**` paths. |
+| **5. Inter-System Communication** | Gemini rate limits, outages, token leakage | Server-side sliding-window rate limiting (35 req/min); resilient fallback ladder (`gemini-3.8-flash` &rarr; `gemini-3.1-flash-lite` &rarr; `gemini-flash-latest` &rarr; `gemini-3.7-flash` &rarr; `gemini-3.6-flash`), server-side Secret Manager integration. |
 
 ---
 
@@ -41,14 +41,23 @@ gcloud services enable \
 1. **Firebase Authentication**:
    - Enable **Google Provider** in the Firebase Console under **Authentication &rarr; Sign-in method**.
    - Federated sign-in eliminates storage of user passwords.
+   - Frontend attaches `Authorization: Bearer <Firebase ID token>` to all AI requests.
+   - Server-side `requireFirebaseAuth` verifies ID tokens via Firebase Admin SDK.
 
 2. **Cloud Firestore Rules**:
-   Deploy the following rules in `firestore.rules` to enforce document-level owner isolation:
+   Deploy the following rules in `firestore.rules` to enforce document-level owner isolation with root-level default deny:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Default Deny: Disallow root collection reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Strict Authenticated User Isolation:
+    // Users can strictly read and write ONLY their own documents and subcollections (/users/{userId}/**)
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
@@ -69,13 +78,15 @@ firebase deploy --only firestore:rules
 
 ## 4. Gemini Configuration & Fallback Ladder
 
-The server proxy in `server.ts` implements a resilient fallback sequence:
-1. `gemini-3.6-flash` (Primary default model)
+The server proxy in `server.ts` implements a resilient fallback sequence with temporary circuit-breakers:
+1. `gemini-3.8-flash` (Primary default model)
 2. `gemini-3.1-flash-lite` (Fast, lightweight fallback)
 3. `gemini-flash-latest` (Stable rolling release alias)
-4. `gemini-3.7-flash` (High-reasoning final fallback)
+4. `gemini-3.7-flash` (High-reasoning fallback)
+5. `gemini-3.6-flash` (Resilient foundation model)
 
 All endpoints catch recoverable status codes (`404`, `429`, `500`, `503`) and automatically step to the next tier without dropping the user's input.
+Public `/api/health` returns solely `{"status": "ok"}` without exposing keys or configuration details.
 
 ---
 
@@ -108,7 +119,7 @@ Documented in `.env.example`:
 # Required for server-side Gemini intelligence (Injected via Secret Manager in production)
 GEMINI_API_KEY=
 
-# Port configuration (Container default: 3000)
+# Port configuration (Container default: 3000, dynamically respects Cloud Run PORT)
 PORT=3000
 ```
 
@@ -166,8 +177,11 @@ gcloud run services describe gemini-reflection-journal \
 
 ## 9. Security & Compliance Checklist
 
+- [x] **Firebase Authentication Enforcement**: All `/api/gemini/*` endpoints require verified Bearer ID tokens.
 - [x] **No hardcoded secrets**: All API keys kept strictly server-side.
-- [x] **No open Firestore rules**: `allow read, write: if true;` is strictly prohibited and denied.
+- [x] **Strict Firestore Isolation**: `allow read, write: if false;` at root; `request.auth.uid == userId` for all user collections.
+- [x] **Rate Limiting**: Sliding-window rate limiter protects AI endpoints against abuse.
+- [x] **Safe Health Check**: `/api/health` returns only `{"status":"ok"}` without exposing internal secrets or configurations.
 - [x] **Zero-crash undefined stripping**: All payloads scrubbed before Firestore writes.
 - [x] **User text preserved**: User reflections are persisted before AI processing; AI failures never erase text.
 - [x] **Authoritative task separation**: AI-detected tasks require explicit user confirmation.
