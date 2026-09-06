@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-page: #f8f8f6;
+    --surface-card: #ffffff;
+    --surface-subtle: #fcfbf9;
+    --surface-inset: #f3f2ee;
+    --border-subtle: #e8e7e3;
+    --border-muted: #dcdad4;
+    --text-primary: #17181c;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    
+    /* Semantic Intelligence Accents */
+    --accent-indigo: #4f46e5;
+    --accent-indigo-subtle: #eef2ff;
+    --accent-indigo-border: #e0e7ff;
+    
+    --semantic-positive: #059669;
+    --semantic-positive-subtle: #ecfdf5;
+    --semantic-positive-border: #a7f3d0;
+    
+    --semantic-calm: #0284c7;
+    --semantic-calm-subtle: #f0f9ff;
+    --semantic-calm-border: #bae6fd;
+    
+    --semantic-energy: #d97706;
+    --semantic-energy-subtle: #fffbeb;
+    --semantic-energy-border: #fde68a;
+    
+    --semantic-stress: #e11d48;
+    --semantic-stress-subtle: #fff1f2;
+    --semantic-stress-border: #fecdd3;
+    
+    --semantic-reflection: #7c3aed;
+    --semantic-reflection-subtle: #f5f3ff;
+    --semantic-reflection-border: #ddd6fe;
+  }
+
+  body {
+    background-color: #f8f8f6;
+    color: #17181c;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom Clean Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #dcdad4;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #b8b5ad;
+  }
+}
+
+@layer components {
+  /* Intentional Card Archetypes */
+  .surface-hero {
+    background-color: #ffffff;
+    border: 1px solid #e8e7e3;
+    border-radius: 1.25rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02);
+  }
+
+  .surface-card {
+    background-color: #ffffff;
+    border: 1px solid #e8e7e3;
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.015);
+  }
+
+  .surface-subtle {
+    background-color: #fcfbf9;
+    border: 1px solid #e8e7e3;
+    border-radius: 1rem;
+  }
+
+  .surface-insight {
+    background-color: #fbfafd;
+    border: 1px solid #ede9fe;
+    border-radius: 1rem;
+  }
+
+  .surface-empty {
+    background-color: #fafaf8;
+    border: 1px dashed #dcdad4;
+    border-radius: 1rem;
+  }
+}
+
